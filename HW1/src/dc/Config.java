@@ -2,6 +2,7 @@ package dc;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.util.HashMap;
 import java.util.Vector;
 
 /**
@@ -40,13 +41,9 @@ public class Config {
   public int[][] getDelaySpec() {
     return delaySpec;
   }
-
-  public Vector<Vector<Integer>> getBroadcastTs() {
+  
+  public HashMap<Integer, Vector<Integer>> getBroadcastTs() {
     return broadcastTs;
-  }
-
-  public Vector<Vector<Vector<Integer>>> getUnicastTs() {
-    return unicastTs;
   }
   
   @Override
@@ -54,17 +51,23 @@ public class Config {
     StringBuilder result = new StringBuilder();
     result.append("IpcType: " + ipcType.toString());
     result.append("\nNumProcesses: " + numProcesses);
-    result.append("\nDelay Spec: \n" + delaySpec.toString());
+    result.append("\nDelay Spec: ");
+    for (int i = 0; i < numProcesses; i++) {
+      result.append("\n");
+      for (int j = 0; j < numProcesses; j++) {
+        result.append(delaySpec[i][j] + " ");
+      }
+    }
     if (ipcType == IpcType.BROADCAST) {
       result.append("\nBroadcastTs: \n" + broadcastTs.toString());
     } else {
-      result.append("\nUnicastTs: \n" + unicastTs.toString());
+      // result.append("\nUnicastTs: \n" + unicastTs.toString());
     }
     return result.toString();
   }
 
   private void ReadConfig(String filename) throws Exception {
-    BufferedReader br = new BufferedReader(new FileReader(filename));
+    BufferedReader br = new BufferedReader(new FileReader("src/dc/" + filename));
     String line = br.readLine();
     // Set ipcType.
     try {
@@ -89,8 +92,9 @@ public class Config {
     }
 
     // Set delay specs for all processes.
-    for (int i = 0; i < getNumProcesses(); i++) {
-      try {
+    delaySpec = new int[numProcesses][numProcesses];
+    try {
+      for (int i = 0; i < getNumProcesses(); i++) {
         line = br.readLine();
         if (line.isEmpty()) {
           continue;
@@ -99,45 +103,31 @@ public class Config {
         for (int j = 0; j < numProcesses; j++) {
           delaySpec[i][j] = Integer.parseInt(delay[j]);
         }
-      } catch (Exception e) {
-        br.close();
-        System.out.println("Unable to parse delay spec matrix. \n"
-                + "Expecting a sq integer matrix of dim: " + numProcesses
-                + "\nExiting..");
-      }
+      } 
+    } catch (Exception e) {
+      br.close();
+      System.out.println(e.getStackTrace());
+      System.out.println("Unable to parse delay spec matrix. \n"
+              + "Expecting a sq integer matrix of dim: " + numProcesses
+              + "\nExiting..");
     }
 
     // Set broadcast timestamps for all processes.
     try {
       if (ipcType == IpcType.BROADCAST) {
-        broadcastTs.setSize(numProcesses);
+        broadcastTs = new HashMap<Integer, Vector<Integer>> ();
         while ((line = br.readLine()) != null) {
           String[] msgSpec = line.split(" ");
-          if (msgSpec.length < 2) {
-            // Ignore the line if process is not broadcasting to anyone.
+          if (msgSpec.length < 1) {
+            // Ignore the line if process no. is not mentioned.
             continue;
           }
           int src = Integer.parseInt(msgSpec[0]);
+          Vector<Integer> ts = new Vector<Integer>();
           for (int i = 0; i < msgSpec.length; i++) {
-            broadcastTs.elementAt(src).add(Integer.parseInt(msgSpec[i]));
+            ts.add(Integer.parseInt(msgSpec[i]));
           }
-        }
-      } else { // Set unicast timestamps for all messages.
-        // Resize 1st 2 dimensions of unicastTs to numProcesses x numProcess.
-        unicastTs.setSize(numProcesses);
-        for (int src = 0; src < numProcesses; src++) {
-          unicastTs.elementAt(src).setSize(numProcesses);
-        }
-        // Add all message timestamps.
-        while ((line = br.readLine()) != null) {
-          if (line.isEmpty()) {
-            continue;
-          }
-          String[] msgSpec = line.split(" ");
-          int src = Integer.parseInt(msgSpec[0]);
-          int dest = Integer.parseInt(msgSpec[1]);
-          int ts = Integer.parseInt(msgSpec[2]);
-          unicastTs.elementAt(src).elementAt(dest).add(ts);
+          broadcastTs.put(src, ts);
         }
       }
     } catch (Exception e) {
@@ -151,8 +141,11 @@ public class Config {
   private IpcType ipcType;
   private int numProcesses;
   private int[][] delaySpec;
-  private Vector<Vector<Integer>> broadcastTs;
-  private Vector<Vector<Vector<Integer>>> unicastTs;
+  private HashMap<Integer, Vector<Integer>> broadcastTs;
+  //private Vector<Vector<Vector<Integer>>> unicastTs;
+  
+  // Port to be used for communicating with server.
+  public static final int PORT = 5000;
   
   public static void main(String[] args) {
     Config config = new Config("sample_config");

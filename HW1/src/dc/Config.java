@@ -25,32 +25,36 @@ public class Config {
     }
   }
 
-  public enum IpcType {
-    BROADCAST, UNICAST
-  };
-
-  // Getters and Setters.
-  public IpcType getIpcType() {
-    return ipcType;
+  public int getPort() {
+    return port;
   }
-
+  
   public int getNumProcesses() {
     return numProcesses;
   }
+  
+  public int getStopTime() {
+    return stopTime;
+  }
 
-  public int[][] getDelaySpec() {
+  public long[][] getDelaySpec() {
     return delaySpec;
   }
   
-  public HashMap<Integer, Vector<Integer>> getBroadcastTs() {
+  public HashMap<Integer, Vector<Long>> getBroadcastTs() {
     return broadcastTs;
+  }
+
+  public String getLogDir() {
+    return logDir;
   }
   
   @Override
   public String toString() {
     StringBuilder result = new StringBuilder();
-    result.append("IpcType: " + ipcType.toString());
+    result.append("\nPort: " + port);
     result.append("\nNumProcesses: " + numProcesses);
+    result.append("\nSimulationStopTime: " + stopTime);
     result.append("\nDelay Spec: ");
     for (int i = 0; i < numProcesses; i++) {
       result.append("\n");
@@ -58,41 +62,30 @@ public class Config {
         result.append(delaySpec[i][j] + " ");
       }
     }
-    if (ipcType == IpcType.BROADCAST) {
-      result.append("\nBroadcastTs: \n" + broadcastTs.toString());
-    } else {
-      // result.append("\nUnicastTs: \n" + unicastTs.toString());
-    }
+    result.append("\nBroadcastTs: \n" + broadcastTs.toString());
     return result.toString();
   }
 
   private void ReadConfig(String filename) throws Exception {
-    BufferedReader br = new BufferedReader(new FileReader("src/dc/" + filename));
+    BufferedReader br = new BufferedReader(new FileReader(filename));
+   
+    // Set log directory.
+    logDir = br.readLine();
+    
+    // Set numProcess, server port and max simulation time
     String line = br.readLine();
-    // Set ipcType.
     try {
-      if (line.compareToIgnoreCase("BROADCAST") == 0) {
-        ipcType = IpcType.BROADCAST;
-      } else {
-        ipcType = IpcType.UNICAST;
-      }
-    } catch (Exception e) {
-      br.close();
-      System.out.println("Unable to parse Ipc Type. \n Expected values are "
-              + "{ BROADCAST, UNICAST}. Exiting..");
-    }
-
-    // Set numProcess.
-    line = br.readLine();
-    try {
-      numProcesses = Integer.parseInt(line);
+      String[] params = line.split(" ");
+      port = Integer.parseInt(params[0]);
+      numProcesses = Integer.parseInt(params[1]);
+      stopTime = Integer.parseInt(params[2]);
     } catch (Exception e) {
       br.close();
       System.out.println("Unable to parse #processes. Exiting..");
     }
 
     // Set delay specs for all processes.
-    delaySpec = new int[numProcesses][numProcesses];
+    delaySpec = new long[numProcesses][numProcesses];
     try {
       for (int i = 0; i < getNumProcesses(); i++) {
         line = br.readLine();
@@ -101,7 +94,7 @@ public class Config {
         }
         String[] delay = line.split(" ");
         for (int j = 0; j < numProcesses; j++) {
-          delaySpec[i][j] = Integer.parseInt(delay[j]);
+          delaySpec[i][j] = Long.parseLong(delay[j]) * 1000;
         }
       } 
     } catch (Exception e) {
@@ -114,21 +107,19 @@ public class Config {
 
     // Set broadcast timestamps for all processes.
     try {
-      if (ipcType == IpcType.BROADCAST) {
-        broadcastTs = new HashMap<Integer, Vector<Integer>> ();
-        while ((line = br.readLine()) != null) {
-          String[] msgSpec = line.split(" ");
-          if (msgSpec.length < 1) {
-            // Ignore the line if process no. is not mentioned.
-            continue;
-          }
-          int src = Integer.parseInt(msgSpec[0]);
-          Vector<Integer> ts = new Vector<Integer>();
-          for (int i = 0; i < msgSpec.length; i++) {
-            ts.add(Integer.parseInt(msgSpec[i]));
-          }
-          broadcastTs.put(src, ts);
+      broadcastTs = new HashMap<Integer, Vector<Long>> ();
+      while ((line = br.readLine()) != null) {
+        String[] msgSpec = line.split(" ");
+        if (msgSpec.length < 1) {
+          // Ignore the line if process no. is not mentioned.
+          continue;
         }
+        int src = Integer.parseInt(msgSpec[0]);
+        Vector<Long> ts = new Vector<Long>();
+        for (int i = 1; i < msgSpec.length; i++) {
+          ts.add(Long.parseLong(msgSpec[i]) * 1000);
+        }
+        broadcastTs.put(src, ts);
       }
     } catch (Exception e) {
       br.close();
@@ -138,17 +129,17 @@ public class Config {
   }
 
   // Class members.
-  private IpcType ipcType;
   private int numProcesses;
-  private int[][] delaySpec;
-  private HashMap<Integer, Vector<Integer>> broadcastTs;
-  //private Vector<Vector<Vector<Integer>>> unicastTs;
-  
-  // Port to be used for communicating with server.
-  public static final int PORT = 5000;
-  
+  private int port;
+  private int stopTime;
+  // Delay in Millisec for channel between pi and pj.
+  private long[][] delaySpec;
+  // Broadcast timestamps for each client in Millisec.
+  private HashMap<Integer, Vector<Long>> broadcastTs;
+  private String logDir;
+
   public static void main(String[] args) {
-    Config config = new Config("sample_config");
+    Config config = new Config(args[0]);
     System.out.println(config.toString());
   }
 }

@@ -1,2 +1,0 @@
-# DC
-Distributed Computing Projects

@@ -2,8 +2,7 @@ package dc;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.util.HashMap;
-import java.util.Vector;
+import java.util.ArrayList;
 
 /**
  * Class to encapsulate the configuration properties of IPC simulation like:
@@ -41,12 +40,16 @@ public class Config {
     return delaySpec;
   }
   
-  public HashMap<Integer, Vector<Long>> getBroadcastTs() {
-    return broadcastTs;
+  public ArrayList<ArrayList<ArrayList<Long>>> unicastTs() {
+    return unicastTs;
   }
 
   public String getLogDir() {
     return logDir;
+  }
+  
+  public ArrayList<ArrayList<ArrayList<Long>>> getUnicastTs() {
+    return unicastTs;
   }
   
   @Override
@@ -62,7 +65,19 @@ public class Config {
         result.append(delaySpec[i][j] + " ");
       }
     }
-    result.append("\nUnicastTs: \n" + broadcastTs.toString());
+    result.append("\nUnicastTs: \n");
+    for (int i = 0; i < unicastTs.size(); i++) {
+      for (int j = 0; j < unicastTs.get(i).size(); j++) {
+        if (unicastTs.get(i).get(j).isEmpty()) {
+          continue;
+        }
+        result.append(i + "->" + j + " : "); 
+        for (long ts : unicastTs.get(i).get(j)) {
+          result.append(ts + ",");
+        }
+        result.append("\n");
+      }
+    }
     return result.toString();
   }
 
@@ -107,23 +122,31 @@ public class Config {
 
     // Set broadcast timestamps for all processes.
     try {
-      broadcastTs = new HashMap<Integer, Vector<Long>> ();
+      unicastTs = new ArrayList<ArrayList<ArrayList<Long>>> (numProcesses);
+      for (int i = 0; i < numProcesses; i++) {
+        unicastTs.add(new ArrayList<ArrayList<Long>>(numProcesses));
+        for (int j = 0; j < numProcesses; j++) {
+          unicastTs.get(i).add(new ArrayList<Long>());
+        }
+      }
       while ((line = br.readLine()) != null) {
         String[] msgSpec = line.split(" ");
-        if (msgSpec.length < 1) {
-          // Ignore the line if process no. is not mentioned.
+        if (msgSpec.length < 3) {
+          // Ignore the line if it has incorrect no. of params.
           continue;
         }
         int src = Integer.parseInt(msgSpec[0]);
-        Vector<Long> ts = new Vector<Long>();
-        for (int i = 1; i < msgSpec.length; i++) {
-          ts.add(Long.parseLong(msgSpec[i]) * 1000);
+        int dest = Integer.parseInt(msgSpec[1]); 
+        String[] timestamps = msgSpec[2].split(",");
+        for (int i = 0; i < timestamps.length; i++) {
+          long ts = Long.parseLong(timestamps[i]) * 1000;
+          unicastTs.get(src).get(dest).add(ts);
         }
-        broadcastTs.put(src, ts);
       }
     } catch (Exception e) {
       br.close();
       System.out.println("Unable to parse msg spec list. Exiting..");
+      e.printStackTrace();
     }
     br.close();
   }
@@ -134,8 +157,9 @@ public class Config {
   private int stopTime;
   // Delay in Millisec for channel between pi and pj.
   private long[][] delaySpec;
-  // Broadcast timestamps for each client in Millisec.
-  private HashMap<Integer, Vector<Long>> broadcastTs;
+  // Unicast timestamps for each client in Millisec.
+  private ArrayList<ArrayList<ArrayList<Long>>> unicastTs;
+
   private String logDir;
 
   public static void main(String[] args) {

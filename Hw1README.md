@@ -1,3 +1,5 @@
+Slip Days Used(This Assignment) : 1   Slip Days Used(Total) : 1
+
 Problem 3) Broadcast config format:
     
 Line 1: Directory where broadcast_config file has to be read from.   
